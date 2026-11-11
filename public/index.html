@@ -3,65 +3,53 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Resume builder demo</title>
+  <title>Expense Tracker</title>
   <link rel="stylesheet" href="/styles.css">
-  <script type="module" src="/app.js"></script>
+  <script src="/app.js" defer></script>
 </head>
 <body>
-  <main class="layout">
-    <section class="panel" aria-labelledby="form-heading">
-      <p class="eyebrow">Create &amp; read demo</p>
-      <h1 id="form-heading">Build a resume</h1>
-      <p>Add a fictional work experience. Entries are public and shared with everyone using this demo.</p>
-      <form id="resume-form" novalidate>
-        <div class="field">
-          <label for="job-title">Job title</label>
-          <input id="job-title" name="job_title" type="text" required maxlength="100" aria-describedby="job-title-error">
-          <span class="error" id="job-title-error"></span>
-        </div>
-        <div class="field">
-          <label for="employer">Employer</label>
-          <input id="employer" name="employer" type="text" required maxlength="100" aria-describedby="employer-error">
-          <span class="error" id="employer-error"></span>
-        </div>
-        <div class="years">
-          <div class="field">
-            <label for="start-year">Start year</label>
-            <input id="start-year" name="start_year" type="number" required min="1900" max="2100" step="1" placeholder="2020" aria-describedby="start-year-error">
-            <span class="error" id="start-year-error"></span>
-          </div>
-          <div class="field">
-            <label for="end-year">End year <span class="optional">(optional)</span></label>
-            <input id="end-year" name="end_year" type="number" min="1900" max="2100" step="1" placeholder="Present" aria-describedby="end-year-error">
-            <span class="error" id="end-year-error"></span>
-          </div>
-        </div>
-        <div class="field">
-          <label for="accomplishment">Accomplishment</label>
-          <textarea id="accomplishment" name="accomplishment" rows="4" required maxlength="1000" aria-describedby="accomplishment-error"></textarea>
-          <span class="error" id="accomplishment-error"></span>
-        </div>
-        <button type="submit">Add experience</button>
-        <p id="form-status" role="status" aria-live="polite"></p>
+  <main class="container">
+    <header>
+      <h1>Tabloom</h1>
+      <p>Keep track of shared expenses</p>
+    </header>
+    
+    <section class="summary">
+      <h2>Outstanding</h2> 
+      <p id="outstanding-total">$0.00</p>
+    </section>
+
+    <section class="add-expense">
+      <h2>Add an expense</h2> 
+
+      <form id="expense-form">
+        <label for="description">Description</label>
+        <input type="text" id="description" name="description" maxlength="100" required>
+
+        <label for="paid_by">Paid by</label>
+        <input type="text" id="paid_by" name="paid_by" maxlength="50" required>
+
+        <label for="owed_by">Owed by</label>
+        <input type="text" id="owed_by" name="owed_by" maxlength="50" required>
+
+        <label for="amount">Amount</label>
+        <input type="number" id="amount" name="amount" min="0.01" step="0.01" required>
+
+        <label for="date">Date</label>
+        <input type="date" id="date" name="date" required>
+
+        <button type="submit">Add expense</button>
+        <p id="form-message" role="status"></p> 
       </form>
     </section>
-    <section class="resume" aria-labelledby="resume-heading">
-      <header class="resume-header">
-        <p class="eyebrow">A shared example</p>
-        <h2 id="resume-heading">Your Name</h2>
-        <p>Professional experience</p>
-      </header>
-      <div id="resume-status" role="status" aria-live="polite">Loading experiences…</div>
-      <div id="resume-items"></div>
-      <footer class="resume-footer">Built with fictional data for a learning demo.</footer>
+
+    <section class="expense-history">
+      <h2>Expenses</h2> 
+
+      <div id="expenses-list">
+        <p>Loading expenses...</p>
+      </div>
     </section>
   </main>
-  <template id="resume-item-template">
-    <article class="experience">
-      <div class="experience-heading"><h3 class="job-title"></h3><p class="dates"></p></div>
-      <p class="employer"></p>
-      <p class="accomplishment"></p>
-    </article>
-  </template>
 </body>
 </html>

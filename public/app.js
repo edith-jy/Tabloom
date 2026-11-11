@@ -1,82 +1,216 @@
-const form = document.querySelector('#resume-form');
-const formStatus = document.querySelector('#form-status');
-const resumeStatus = document.querySelector('#resume-status');
-const resumeItems = document.querySelector('#resume-items');
-const template = document.querySelector('#resume-item-template');
-const submitButton = form.querySelector('button[type="submit"]');
-const fields = [...form.querySelectorAll('input, textarea')];
 
-function validateField(field) {
-  if (field.type === 'text' || field.tagName === 'TEXTAREA') {
-    field.setCustomValidity(field.validity.valueMissing || field.value.trim() ? '' : 'Enter a value that is not just whitespace.');
-  }
-  const valid = field.checkValidity();
-  document.getElementById(`${field.id}-error`).textContent = valid ? '' : field.validationMessage;
-  if (valid) field.removeAttribute('aria-invalid');
-  else field.setAttribute('aria-invalid', 'true');
-  return valid;
-}
+const expenseForm = document.querySelector('#expense-form');
+const expensesList = document.querySelector('#expenses-list');
+const outstandingTotal = document.querySelector('#outstanding-total');
+const formMessage = document.querySelector('#form-message');
 
-for (const field of fields) {
-  field.addEventListener('input', () => validateField(field));
-  field.addEventListener('blur', () => validateField(field));
-}
-
-async function loadItems() {
-  resumeStatus.textContent = 'Loading experiences…';
+// Retrieve and display expenses
+async function loadExpenses() {
   try {
-    const response = await fetch('/api/resume-items');
-    if (!response.ok) throw new Error('Unable to load experiences. Please try again later.');
-    const items = await response.json();
-    const fragment = document.createDocumentFragment();
-    for (const item of items) {
-      const node = template.content.cloneNode(true);
-      node.querySelector('.job-title').textContent = item.job_title;
-      node.querySelector('.employer').textContent = item.employer;
-      node.querySelector('.dates').textContent = `${item.start_year} – ${item.end_year ?? 'Present'}`;
-      node.querySelector('.accomplishment').textContent = item.accomplishment;
-      fragment.append(node);
+    const response = await fetch('/api/expenses');
+
+    if (!response.ok) {
+      throw new Error('Unable to load expenses.');
     }
-    resumeItems.replaceChildren(fragment);
-    resumeStatus.textContent = items.length ? '' : 'No experiences yet. Add the first one above.';
-    return true;
-  } catch {
-    resumeStatus.textContent = 'Unable to load experiences. Please refresh the page to try again.';
-    return false;
+
+    const expenses = await response.json();
+
+    displayExpenses(expenses);
+    calculateOutstanding(expenses);
+  } catch (error) {
+    expensesList.textContent = 'Unable to load expenses.';
+    console.error(error);
   }
 }
 
-form.addEventListener('submit', async (event) => {
-  event.preventDefault();
-  formStatus.textContent = '';
-  const validity = fields.map(validateField);
-  if (validity.includes(false)) {
-    fields[validity.indexOf(false)].focus();
+// Display expenses on the page
+function displayExpenses(expenses) {
+  expensesList.replaceChildren();
+
+  if (expenses.length === 0) {
+    expensesList.textContent = 'No expenses yet. Add one above!';
     return;
   }
 
-  const data = Object.fromEntries(new FormData(form));
-  if (!data.end_year) delete data.end_year;
-  submitButton.disabled = true;
-  formStatus.textContent = 'Saving experience…';
+  expenses.forEach(expense => {
+    const card = document.createElement('article');
+    card.className = 'expense-card';
+
+    const title = document.createElement('h3');
+    title.textContent = expense.description;
+
+    const amount = document.createElement('p');
+    amount.textContent = `$${Number(expense.amount).toFixed(2)}`;
+
+    const people = document.createElement('p');
+    people.textContent = `${expense.paid_by} paid for ${expense.owed_by}`;
+
+    const date = document.createElement('p');
+    date.textContent = new Date(expense.date).toLocaleDateString();
+
+    const status = document.createElement('p');
+    status.className = 'paid-status';
+    status.textContent = expense.is_paid ? 'Paid' : 'Unpaid';
+
+    const actions = document.createElement('div');
+    actions.className = 'expense-actions';
+
+    const editButton = document.createElement('button');
+    editButton.textContent = 'Edit';
+    editButton.addEventListener('click', () => editExpense(expense));
+
+    const paidButton = document.createElement('button');
+    paidButton.textContent = expense.is_paid ? 'Mark unpaid' : 'Mark paid';
+    paidButton.addEventListener('click', () => togglePaid(expense));
+
+    const deleteButton = document.createElement('button');
+    deleteButton.textContent = 'Delete';
+    deleteButton.className = 'delete-button';
+    deleteButton.addEventListener('click', () => deleteExpense(expense._id));
+
+    actions.append(editButton, paidButton, deleteButton);
+
+    card.append(title, amount, people, date, status, actions);
+    expensesList.append(card);
+  });
+}
+
+// Calculate the outstanding total
+function calculateOutstanding(expenses) {
+  const total = expenses
+    .filter(expense => !expense.is_paid)
+    .reduce((sum, expense) => sum + Number(expense.amount), 0);
+
+  outstandingTotal.textContent = `$${total.toFixed(2)}`;
+}
+
+// Add an expense
+expenseForm.addEventListener('submit', async event => {
+  event.preventDefault();
+
+  const formData = new FormData(expenseForm);
+
+  const expense = {
+    description: formData.get('description'),
+    paid_by: formData.get('paid_by'),
+    owed_by: formData.get('owed_by'),
+    amount: Number(formData.get('amount')),
+    date: formData.get('date')
+  };
+
   try {
-    const response = await fetch('/api/resume-items', {
+    const response = await fetch('/api/expenses', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(expense)
     });
+
     if (!response.ok) {
-      const body = await response.json().catch(() => ({}));
-      throw new Error(body.error || 'Unable to save the experience. Please try again.');
+      throw new Error('Unable to add expense.');
     }
-    form.reset();
-    formStatus.textContent = 'Experience saved.';
-    if (!await loadItems()) formStatus.textContent = 'Experience saved, but the resume could not be refreshed.';
+
+    expenseForm.reset();
+    formMessage.textContent = 'Expense added successfully.';
+
+    await loadExpenses();
   } catch (error) {
-    formStatus.textContent = error.message || 'Unable to save the experience. Please try again.';
-  } finally {
-    submitButton.disabled = false;
+    formMessage.textContent = 'Something went wrong. Please try again.';
+    console.error(error);
   }
 });
 
-loadItems();
+// Edit an expense
+async function editExpense(expense) {
+  const description = prompt('Description:', expense.description);
+  if (description === null) return;
+
+  const paidBy = prompt('Paid by:', expense.paid_by);
+  if (paidBy === null) return;
+
+  const owedBy = prompt('Owed by:', expense.owed_by);
+  if (owedBy === null) return;
+
+  const amount = prompt('Amount:', expense.amount);
+  if (amount === null) return;
+
+  const date = prompt('Date (YYYY-MM-DD):', expense.date.slice(0, 10));
+  if (date === null) return;
+
+  const updates = {
+    description,
+    paid_by: paidBy,
+    owed_by: owedBy,
+    amount: Number(amount),
+    date
+  };
+
+  try {
+    const response = await fetch(`/api/expenses/${expense._id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(updates)
+    });
+
+    if (!response.ok) {
+      throw new Error('Unable to update expense.');
+    }
+
+    await loadExpenses();
+  } catch (error) {
+    alert('Unable to update expense. Please check the information.');
+    console.error(error);
+  }
+}
+
+// Mark an expense as paid or unpaid
+async function togglePaid(expense) {
+  try {
+    const response = await fetch(`/api/expenses/${expense._id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        is_paid: !expense.is_paid
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error('Unable to update payment status.');
+    }
+
+    await loadExpenses();
+  } catch (error) {
+    alert('Unable to update payment status.');
+    console.error(error);
+  }
+}
+
+// Delete an expense
+async function deleteExpense(id) {
+  if (!confirm('Are you sure you want to delete this expense?')) {
+    return;
+  }
+
+  try {
+    const response = await fetch(`/api/expenses/${id}`, {
+      method: 'DELETE'
+    });
+
+    if (!response.ok) {
+      throw new Error('Unable to delete expense.');
+    }
+
+    await loadExpenses();
+  } catch (error) {
+    alert('Unable to delete expense.');
+    console.error(error);
+  }
+}
+
+// Load expenses when the page opens
+loadExpenses();
